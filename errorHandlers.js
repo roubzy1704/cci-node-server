@@ -1,3 +1,5 @@
+const logger = require('./logger');
+
 /**
  * Handles 404 - Not Found errors.
  * @param {Object} req - The Express request object.
@@ -16,6 +18,6 @@ exports.handle404 = (req, res, next) => {
  * @param {Function} next - The Express next middleware function.
  */
 exports.handleError = (err, req, res, next) => {
-    console.error(err.message); // This will ideally be replaced with a proper logger, e.g., Winston.
+    logger.error("Error details: ", { error: err.message });    
     res.status(500).send('Internal Server Error');
 };
