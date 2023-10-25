@@ -21,7 +21,16 @@ const schema = Joi.object({
 	ERROR_LOG_LEVEL: Joi.string().required(),
 	SERVICE_NAME: Joi.string().required(),
 	ERROR_LOG_PATH: Joi.string().required(),
-	COMBINED_LOG_PATH: Joi.string().required()
+	COMBINED_LOG_PATH: Joi.string().required(),
+	IDRIVE_ACCESS_KEY_ID: Joi.string().required(),
+	IDRIVE_SECRET_ACCESS_KEY: Joi.string().required(),
+	IDRIVE_S3_REGION: Joi.string().required(),
+	IDRIVE_S3_ACL: Joi.string().required(),
+	IDRIVE_S3_ENDPOINT: Joi.string().required(),
+	IDRIVE_S3_BUCKET_NAME: Joi.string().required(),
+	IDRIVE_S3_PICTURES_FOLDER: Joi.string().required(),
+	IDRIVE_S3_SIGNATURES_FOLDER: Joi.string().required(),
+	IDRIVE_S3_PUBLIC_ENDPOINT: Joi.string().required()
 }).unknown(true);
 
 const { error, value: validatedEnvConfig } = schema.validate(process.env);

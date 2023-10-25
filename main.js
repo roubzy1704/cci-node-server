@@ -16,6 +16,24 @@ const config = require('./config');
 const { generateRandomStateValue, generateCodeVerifier, generateCodeChallenge } = require('./utils');
 const { handleError, handle404 } = require('./errorHandlers');
 
+// iDRIVE(AWS API) module imports
+const AWS = require('aws-sdk');
+const multer = require('multer');
+const storage = multer.memoryStorage(); // Store the file as a buffer in memory
+const upload = multer({ storage: storage });
+
+// Configure AWS SDK
+AWS.config.update({
+	accessKeyId: config.IDRIVE_ACCESS_KEY_ID,
+	secretAccessKey: config.IDRIVE_SECRET_ACCESS_KEY,
+	region: config.IDRIVE_S3_REGION
+});
+const customEndpoint = config.IDRIVE_S3_ENDPOINT;
+const s3 = new AWS.S3({
+	endpoint: customEndpoint,
+	s3ForcePathStyle: true,
+});
+
 const app = express();
 app.set('trust proxy', 1);  // trust the first proxy
 
@@ -120,12 +138,69 @@ app.get('/api/getItemFulfillmentRecord', async (req, res, next) => {
 	}
 });
 
+// Route to update ItemFulfillment record
+app.get('/api/updateItemFulfillmentRecord', async (req, res, next) => {
+	logger.info(`/api/getItemFulfillmentRecord: ${config.SERVICE_NAME}`);
+	try {
+		const tokenData = req.query.data;
+		const id = req.query.id;
+		const response = await axios.patch(`${config.CCI_NETSUITE_REST_ROOT_URI}/itemFulfillment/${id}`,
+		{
+			
+		}, {
+			headers: {
+				'Authorization': `Bearer ${tokenData}`
+			}
+		});
+		res.json(response.data);
+	} catch (error) {
+		next(error);
+	}
+});
+
 // Route to handle user logout
 app.get('/logout', async (req, res, next) => {
 	logger.info(`/logout: ${config.SERVICE_NAME}`);
 	res.clearCookie('oauth_state', { domain: 'loca.lt', path: '/', httpOnly: true, secure: true, sameSite: 'none' });
 	res.clearCookie('oauth_code_verifier', { domain: 'loca.lt', path: '/', httpOnly: true, secure: true, sameSite: 'none' });
 	res.redirect(`${config.CCI_APP_HOME}/`);
+});
+
+// Route to handle iDRIVE bucket upload
+app.post('/api/uploadToS3', upload.array('files'), async (req, res, next) => {
+	try {
+		const files = req.files;
+
+		if (!files || files.length !== 2) {
+			return res.status(400).send('Both signature and image files are required.');
+		}
+
+		// Array to store the URLs of the uploaded files
+		const uploadedFileUrls = [];
+
+		await Promise.all(files.map(async (file) => {
+			const fullFileName = file.originalname.includes('picture') ? `${config.IDRIVE_S3_PICTURES_FOLDER}/${file.originalname}` : `${config.IDRIVE_S3_SIGNATURES_FOLDER}/${file.originalname}`;
+			const uploadParams = {
+				Bucket: `${config.IDRIVE_S3_BUCKET_NAME}`,
+				Key: fullFileName,
+				Body: file.buffer,
+				ContentType: file.mimetype,
+				ACL: `${config.IDRIVE_S3_ACL}`
+			};
+
+			const result = await s3.upload(uploadParams).promise();
+			let resultPublicLocation = result.Location.substring(result.Location.indexOf('m') + 1); // 'm' is last letter of bucket endpoint
+			resultPublicLocation=`${config.IDRIVE_S3_PUBLIC_ENDPOINT}${resultPublicLocation}`;
+			uploadedFileUrls.push(resultPublicLocation);  // Capture the public file URL
+		}));
+
+		res.json({
+			message: 'Images successfully uploaded.',
+			urls: uploadedFileUrls  // Return the URLs of the uploaded files
+		});
+	} catch (error) {
+		next(error);
+	}
 });
 
 // Error handling middlewares
