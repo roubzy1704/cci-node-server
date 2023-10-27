@@ -9,6 +9,7 @@ const schema = Joi.object({
 	OAUTH_STEP_ONE_GET_ENDPOINT: Joi.string().required(),     // OAuth first step endpoint (GET method)
 	OAUTH_STEP_TWO_POST_ENDPOINT: Joi.string().required(),    // OAuth second step endpoint (POST method)
 	SCOPE: Joi.string().required(),                           // OAuth requested scopes
+	PROVIDER_DOMAIN: Joi.string().required(),                 // Cloud provider domain (for cookie settings)
 	SERVER_HOST: Joi.string().required(),                     // Server hostname or IP address
 	SERVER_PORT: Joi.number().required(),                     // Server port number
 	RATE_LIMIT_MINUTES: Joi.number().required(),              // Window time for rate limiting (in minutes)

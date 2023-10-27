@@ -68,8 +68,8 @@ app.get('/auth', async (req, res, next) => {
 	const state = generateRandomStateValue();
 	const codeVerifier = generateCodeVerifier();
 	const codeChallenge = generateCodeChallenge(codeVerifier);
-	res.cookie('oauth_state', state, { domain: 'loca.lt', path: '/', httpOnly: true, secure: true, sameSite: 'none' });
-	res.cookie('oauth_code_verifier', codeVerifier, { domain: 'loca.lt', path: '/', httpOnly: true, secure: true, sameSite: 'none' });
+	res.cookie('oauth_state', state, { domain: `${config.PROVIDER_DOMAIN}`, path: '/', httpOnly: true, secure: true, sameSite: 'none' });
+	res.cookie('oauth_code_verifier', codeVerifier, { domain: `${config.PROVIDER_DOMAIN}`, path: '/', httpOnly: true, secure: true, sameSite: 'none' });
 	const authorizationUrl = `${config.OAUTH_STEP_ONE_GET_ENDPOINT}?response_type=code&client_id=${config.CLIENT_ID}&redirect_uri=${config.REDIRECT_URI}&scope=${config.SCOPE}&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=S256`;
 	res.redirect(authorizationUrl);
 });
@@ -96,8 +96,8 @@ app.get('/callback', async (req, res, next) => {
 				'Content-Type': `${config.POST_HEADER_CONTENT_TYPE}`
 			}
 		});
-		res.clearCookie('oauth_state', { domain: 'loca.lt', path: '/', httpOnly: true, secure: true, sameSite: 'none' });
-		res.clearCookie('oauth_code_verifier', { domain: 'loca.lt', path: '/', httpOnly: true, secure: true, sameSite: 'none' });
+		res.clearCookie('oauth_state', { domain: `${config.PROVIDER_DOMAIN}`, path: '/', httpOnly: true, secure: true, sameSite: 'none' });
+		res.clearCookie('oauth_code_verifier', { domain: `${config.PROVIDER_DOMAIN}`, path: '/', httpOnly: true, secure: true, sameSite: 'none' });
 		res.redirect(`${config.CCI_APP_HOME}/dashboard?data=${encodeURIComponent(response.data.access_token)}`);
 	} catch (error) {
 		next(error);
@@ -201,8 +201,8 @@ app.post('/api/updateItemFulfillmentRecord', async (req, res, next) => {
 // Logout route - clears relevant cookies and redirects to home
 app.get('/logout', async (req, res, next) => {
 	logger.info(`/logout: ${config.SERVICE_NAME}`);
-	res.clearCookie('oauth_state', { domain: 'loca.lt', path: '/', httpOnly: true, secure: true, sameSite: 'none' });
-	res.clearCookie('oauth_code_verifier', { domain: 'loca.lt', path: '/', httpOnly: true, secure: true, sameSite: 'none' });
+	res.clearCookie('oauth_state', { domain: `${config.PROVIDER_DOMAIN}`, path: '/', httpOnly: true, secure: true, sameSite: 'none' });
+	res.clearCookie('oauth_code_verifier', { domain: `${config.PROVIDER_DOMAIN}`, path: '/', httpOnly: true, secure: true, sameSite: 'none' });
 	res.redirect(`${config.CCI_APP_HOME}/`);
 });
 
