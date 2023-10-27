@@ -11,9 +11,6 @@ const schema = Joi.object({
 	SCOPE: Joi.string().required(),                           // OAuth requested scopes
 	SERVER_HOST: Joi.string().required(),                     // Server hostname or IP address
 	SERVER_PORT: Joi.number().required(),                     // Server port number
-	REDIS_HOST: Joi.string().required(),                      // Redis server hostname or IP address
-	REDIS_PORT: Joi.number().required(),                      // Redis server port number
-	REDIS_EXPIRATION_TIME: Joi.number().required(),           // Redis key expiration time in seconds
 	RATE_LIMIT_MINUTES: Joi.number().required(),              // Window time for rate limiting (in minutes)
 	RATE_LIMIT_MAX_REQUESTS: Joi.number().required(),         // Maximum allowed requests in the rate limit window
 	NODE_ENV: Joi.string().valid('production', 'development') // Application environment. Defaults to 'development' if not provided.
