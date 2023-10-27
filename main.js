@@ -35,6 +35,8 @@ const s3 = new AWS.S3({
 });
 
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.set('trust proxy', 1);  // trust the first proxy
 
 // Use the cookie-parser middleware
@@ -108,7 +110,7 @@ app.get('/api/getItemFulfillmentDataSuiteQL', async (req, res, next) => {
 		const userId = decodedToken.sub.substring(decodedToken.sub.indexOf(";") + 1);
 		const response = await axios.post(`${config.CCI_NETSUITE_SUITEQL_ROOT_URI}/suiteql?limit=100`, {
 			"q": `SELECT * FROM \"transaction\" WHERE NOT status=(SELECT id FROM TransactionStatus WHERE id='C' AND name='Shipped' AND fullname='Item Fulfillment : Shipped') 
-					AND custbody8 LIKE '%${userId}%'`
+			      AND custbody_assigned_user LIKE '%${userId}%'`
 		}, {
 			headers: {
 				'Authorization': `Bearer ${tokenData}`,
@@ -139,24 +141,58 @@ app.get('/api/getItemFulfillmentRecord', async (req, res, next) => {
 });
 
 // Route to update ItemFulfillment record
-app.get('/api/updateItemFulfillmentRecord', async (req, res, next) => {
-	logger.info(`/api/getItemFulfillmentRecord: ${config.SERVICE_NAME}`);
+app.post('/api/updateItemFulfillmentRecord', async (req, res, next) => {
+	logger.info(`/api/updateItemFulfillmentRecord: ${config.SERVICE_NAME}`);
 	try {
-		const tokenData = req.query.data;
-		const id = req.query.id;
-		const response = await axios.patch(`${config.CCI_NETSUITE_REST_ROOT_URI}/itemFulfillment/${id}`,
-		{
-			
-		}, {
-			headers: {
-				'Authorization': `Bearer ${tokenData}`
+		const tokenData = req.body.data;
+		const id = req.body.id;
+		const capturedImage = req.body.capturedImage;
+		const signatureImage = req.body.signatureImage;
+
+		// Check if required data is missing
+		if (!tokenData || !id || !capturedImage || !signatureImage) {
+			return res.status(400).json({ error: 'Missing required data.' });
+		}
+
+		// Construct the payload for the update
+		const payload = {
+			custbody_delivery_signature: capturedImage,
+			custbody_delivery_picture: signatureImage,
+			status: {
+				id: 'Shipped',
+				refName: 'Shipped'
+			},
+			shipStatus: {
+				id: 'C',
+				refName: 'Shipped'
+			},
+			custbody_prevent_auto_email: false
+		};
+
+		// Make the PATCH request to update the record
+		const response = await axios.patch(
+			`${config.CCI_NETSUITE_REST_ROOT_URI}/itemFulfillment/${id}`,
+			payload,
+			{
+				headers: {
+					Authorization: `Bearer ${tokenData}`,
+				},
 			}
-		});
-		res.json(response.data);
+		);
+
+		if (response.status === 204) {
+			res.json({ message: 'ItemFulfillment record updated successfully.' });
+		} else {
+			// Handle other status codes
+			res.status(response.status).json({ error: 'Failed to update ItemFulfillment record.' });
+		}
 	} catch (error) {
+		// Log the error and pass it to the error handler
+		logger.error(`Error updating ItemFulfillment record: ${error}`);
 		next(error);
 	}
 });
+
 
 // Route to handle user logout
 app.get('/logout', async (req, res, next) => {
@@ -190,7 +226,7 @@ app.post('/api/uploadToS3', upload.array('files'), async (req, res, next) => {
 
 			const result = await s3.upload(uploadParams).promise();
 			let resultPublicLocation = result.Location.substring(result.Location.indexOf('m') + 1); // 'm' is last letter of bucket endpoint
-			resultPublicLocation=`${config.IDRIVE_S3_PUBLIC_ENDPOINT}${resultPublicLocation}`;
+			resultPublicLocation = `${config.IDRIVE_S3_PUBLIC_ENDPOINT}${resultPublicLocation}`;
 			uploadedFileUrls.push(resultPublicLocation);  // Capture the public file URL
 		}));
 
