@@ -3,26 +3,30 @@ require('dotenv').config();
 
 // External module imports
 const express = require('express');
-const axios = require('axios');
-const helmet = require('helmet');
-const cors = require('cors');
-const rateLimit = require("express-rate-limit");
-const cookieParser = require('cookie-parser');
-const jwt = require('jsonwebtoken');
+const axios = require('axios'); // For making HTTP requests
+const helmet = require('helmet'); // For security headers
+const cors = require('cors'); // For handling cross-origin requests
+const rateLimit = require("express-rate-limit"); // For rate-limiting to prevent abuse
+const cookieParser = require('cookie-parser'); // For parsing cookies from request headers
+const jwt = require('jsonwebtoken'); // For decoding JWT tokens
 
 // Internal module imports
+// Logger for application-specific logging
 const logger = require('./logger');
+// Configuration settings for the application
 const config = require('./config');
+// Utility functions
 const { generateRandomStateValue, generateCodeVerifier, generateCodeChallenge } = require('./utils');
+// Custom error handlers
 const { handleError, handle404 } = require('./errorHandlers');
 
-// iDRIVE(AWS API) module imports
+// AWS module imports for handling file uploads to S3
 const AWS = require('aws-sdk');
 const multer = require('multer');
-const storage = multer.memoryStorage(); // Store the file as a buffer in memory
+const storage = multer.memoryStorage(); // Store uploaded files as buffers in memory
 const upload = multer({ storage: storage });
 
-// Configure AWS SDK
+// Configure AWS SDK with access credentials and region
 AWS.config.update({
 	accessKeyId: config.IDRIVE_ACCESS_KEY_ID,
 	secretAccessKey: config.IDRIVE_SECRET_ACCESS_KEY,
@@ -31,34 +35,34 @@ AWS.config.update({
 const customEndpoint = config.IDRIVE_S3_ENDPOINT;
 const s3 = new AWS.S3({
 	endpoint: customEndpoint,
-	s3ForcePathStyle: true,
+	s3ForcePathStyle: true,  // Forces path style URLs
 });
 
+// Initialize Express application
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.set('trust proxy', 1);  // trust the first proxy
 
-// Use the cookie-parser middleware
+// Middleware configurations
+app.use(express.json());  // Parse JSON request bodies
+app.use(express.urlencoded({ extended: true }));  // Parse URL-encoded request bodies
+app.set('trust proxy', 1);  // trust the first proxy, e.g. if behind a load balancer
+
+// Parse cookie headers and populate `req.cookies`
 app.use(cookieParser());
-
-// Middleware to set various security headers
+// Set various security headers
 app.use(helmet());
-
-// Middleware to enable Cross-Origin Resource Sharing
+// Enable Cross-Origin Resource Sharing for the specified origin
 app.use(cors({
 	origin: config.CCI_APP_HOME,
 	credentials: true
 }));
-
-// Rate limiting middleware to prevent abuse
+// Set up rate limiting to prevent abuse
 const limiter = rateLimit({
-	windowMs: config.RATE_LIMIT_MINUTES * 60 * 1000,
-	max: config.RATE_LIMIT_MAX_REQUESTS
+	windowMs: config.RATE_LIMIT_MINUTES * 60 * 1000,  // Window duration
+	max: config.RATE_LIMIT_MAX_REQUESTS  // Max number of requests in the window duration
 });
 app.use(limiter);
 
-// OAuth2 Authorization route
+// Route to initiate the OAuth2 authorization process
 app.get('/auth', async (req, res, next) => {
 	logger.info(`Authenticating: ${config.SERVICE_NAME}`);
 	const state = generateRandomStateValue();
@@ -70,7 +74,7 @@ app.get('/auth', async (req, res, next) => {
 	res.redirect(authorizationUrl);
 });
 
-// OAuth2 Callback route
+// Route to handle callback from the OAuth2 authorization server
 app.get('/callback', async (req, res, next) => {
 	logger.info(`Callback: ${config.SERVICE_NAME}`);
 	const { code, state: returnedState } = req.query;
@@ -100,7 +104,7 @@ app.get('/callback', async (req, res, next) => {
 	}
 });
 
-// Route to retrieve ItemFulfillment data by SuiteQL
+// Endpoint to fetch ItemFulfillment data using SuiteQL
 app.get('/api/getItemFulfillmentDataSuiteQL', async (req, res, next) => {
 	logger.info(`/api/getItemFulfillmentDataSuiteQL: ${config.SERVICE_NAME}`);
 	try {
@@ -123,7 +127,7 @@ app.get('/api/getItemFulfillmentDataSuiteQL', async (req, res, next) => {
 	}
 });
 
-// Route to retrieve ItemFulfillment record
+// Endpoint to retrieve a specific ItemFulfillment record
 app.get('/api/getItemFulfillmentRecord', async (req, res, next) => {
 	logger.info(`/api/getItemFulfillmentRecord: ${config.SERVICE_NAME}`);
 	try {
@@ -140,7 +144,7 @@ app.get('/api/getItemFulfillmentRecord', async (req, res, next) => {
 	}
 });
 
-// Route to update ItemFulfillment record
+// Endpoint to update a specific ItemFulfillment record
 app.post('/api/updateItemFulfillmentRecord', async (req, res, next) => {
 	logger.info(`/api/updateItemFulfillmentRecord: ${config.SERVICE_NAME}`);
 	try {
@@ -194,7 +198,7 @@ app.post('/api/updateItemFulfillmentRecord', async (req, res, next) => {
 });
 
 
-// Route to handle user logout
+// Logout route - clears relevant cookies and redirects to home
 app.get('/logout', async (req, res, next) => {
 	logger.info(`/logout: ${config.SERVICE_NAME}`);
 	res.clearCookie('oauth_state', { domain: 'loca.lt', path: '/', httpOnly: true, secure: true, sameSite: 'none' });
@@ -202,8 +206,9 @@ app.get('/logout', async (req, res, next) => {
 	res.redirect(`${config.CCI_APP_HOME}/`);
 });
 
-// Route to handle iDRIVE bucket upload
+// Endpoint to handle uploads to the iDRIVE S3 bucket
 app.post('/api/uploadToS3', upload.array('files'), async (req, res, next) => {
+	logger.info(`/api/uploadToS3: ${config.SERVICE_NAME}`);
 	try {
 		const files = req.files;
 
@@ -243,9 +248,9 @@ app.post('/api/uploadToS3', upload.array('files'), async (req, res, next) => {
 app.use(handle404);
 app.use(handleError);
 
+// Start the server on the specified port
 const serverHost = config.SERVER_HOST || 'http://localhost';
 const port = config.SERVER_PORT || 3000;
-
 app.listen(port, () => {
 	logger.info(`Server is running on ${serverHost}:${port}`);
 });
