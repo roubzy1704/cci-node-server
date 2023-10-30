@@ -1,0 +1,9 @@
+RewriteEngine On
+RewriteBase /
+
+# Redirect traffic to port 8090 for cci-fulfillment app (front-end)
+RewriteRule ^cci-fulfillment/(.*)$ http://localhost:8090/cci-fulfillment/$1 [P,L]
+
+# Redirect all other traffic to port 3001 for cci-node-server app
+RewriteCond %{REQUEST_URI} !^/cci-fulfillment/
+RewriteRule ^(.*)?$ http://127.0.0.1:3001/$1 [P,L]
